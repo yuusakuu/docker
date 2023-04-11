@@ -1,1 +1,197 @@
 docker 명령어
+
+
+cli 명령어 사용
+pwd : 현재 위치를 확인
+ls : 폴더 파일의 목록을 출력 
+cd : 폴더에 진입
+open . : 현재 폴더를 파일 탐색기로 연다.
+mkdir : 새로운 폴더를 생성한다.
+touch : 새로운 파일을 생성한다.
+cat : 파일의 내용을 출력한다.
+rm : 폴더나 파일을 삭제한다.
+mv : 폴더나 파일의 위치를 이동하거나 이름을 변경한다.
+cp : 폴더의 파일을 복사한다.
+sudo : 관리자 권한으로 다음 명령어를 실행시킨다.
+
+
+호스트
+운영체제가 설치된 부분을 호스트라고 한다. 
+호스트 내에서 격리되어서 각각 실행되고 있는 환경을 컨테이너라고 한다. 
+
+우리에게 필요한 것만 실행되어 있으니
+속도 면에서 가볍다 
+
+
+
+hypervisor
+guest os 
+
+hypervisor를 거치다보니 성능손실이 발생하기도 함 
+
+또한 os 들이 불필요한 것을 많이 포함해서 무거워짐 
+
+도커에서는 일일히 os 에다 설치하는 것이 아니라 
+실행파일 자체를 하나의 패키징으로 만들 수 있고 이를 containerization 이라고 할 수 있음
+
+ 
+
+도커 명령어 
+
+컨테이너 생성 
+docker create [image]
+
+컨테이너 생성 및 시작 
+docker run [image]
+
+컨테이너 시작 
+docker start [container]
+
+
+nginx 내려받기
+docker pull nginx:1.23
+
+
+현재 실행중인 컨테이너 확인 
+docker ps
+
+현재 실행 중: status 상에서 up으로 표현 
+
+전체 컨테이너 상태 확인 
+docker ps -a 
+
+컨테이너 상세 정보 확인 
+docker inspect [container]
+
+컨테이너 일시 중지 
+docker pause [container]
+
+
+컨테이저 중지 
+docker stop [container]
+
+
+컨테이너 재개 
+docker unpause [container] 
+
+컨테이너 강제 종료 
+docker kill [container]
+
+모든 컨테이너 종료 
+docker stop $(docker ps -a -q)
+
+컨테이너 삭제 
+docker rm [container] 
+
+컨테이너 강제 종료 후 삭제 
+docker rm -f [container] 
+
+entrypoint와 command
+docker run --entrypoint sh ubuntu
+docker run --entrypoint echo ubuntu hello ubuntu 
+
+머신러닝 소스코드는 컨테이너에서 entrypoint와 command 명령어가 없다면 실행되지 않는다. 
+컨테이너를 만드는 것은 소스코드가 실행되기 위한 환경을 마련하는 것
+해당 명령어는 소스코드를 실행시키기 위한 명령어이다. 
+
+
+
+
+환경 변수 설정
+docker run 
+
+docker run -it -e MY_HOST=1.1.1.1 ubuntu:latest bash 
+환경 변수 확인
+echo $MY_HOST 
+
+파일 사용 
+docker run -it --env-file ./sample.env ubuntu:latest env
+
+
+
+
+명령어 실행 
+docker exec
+docker exec [container] [commmand] 
+
+my-nginx 컨테이너에 bash 툴로 접속하기 
+docker exec --it my-nginx bash 
+
+my-nginx 컨테이너에 환경변수 확인하기 
+docker exec my-nginx env 
+
+
+
+
+
+NET WORK 
+컨테이너의 PORT를 HOST의 IP:PORT와 연결해 어플리케이션을 이용할 수 있도록 합니다. 
+docker run -p [HOST IP:PORT]:[CONTAINER PORT] [container] 
+
+컨테어의 80번 포트를 호스트 모든 IP의 80번 포트와 연결하여 실행 
+docker run -d -p 80:80 nginx
+
+nginx 컨테이너의 80번 포트를 호스트 127.0.0.1 IP의 80번 포트와 연결하여 실행 
+docker run -d -p 127.0.0.1:80:80 nginx
+
+nginx 컨테이너의 80번 포트를 호스트의 사용 가능한 포트와 연결하여 실행 
+docker run -d -p 80 nginx 
+
+
+
+Expose vs Publish 
+
+expose (어떤 포트를 사용하겠다는 정보만 줌) 
+docker run -d --expose 80 nginx
+
+publish (어떤 포트를 실제 사용하겠다) 
+docker run -d -p 80 nginx
+
+
+
+
+Volume 
+
+호스트의 디렉토리를 컨테이너의 특정 경로에 마운트합니다. 
+nginx 기본 접속 페이지 확인 
+docker run -d -it -p 8090:80 --name my-nginx nginx:1.23
+
+마운트할 디렉토리 생성 
+docker run -d -p 8090:80 -v $(pwd)/html:/usr/share/nginx/html --name my-nginx nginx:1.23
+
+docker inspect 명령어 사용에 Mount 확인 
+docker inspect my-nginx
+
+
+Volume Container 
+특정 컨테이너의 볼륨 마운트를 공유할 수 있습니다. 
+컨테이너 레이어는 컨테이너가 종료되면 없어지는 문제가 있다. 
+
+호스트 볼륨 = 컨테이너가 없어지는 것을 방지하기 위해 컨테이너의 특정 경로에 연결을 시켜 놓는 것
+docker run -d --name my-volume -it -v $[pwd]/html:/usr/share/nginx/html ubuntu 
+
+my-volume 컨테이너의 볼륨을 공유 
+docker run -d -p 8090:80 --name my-nginx --volumes-from my-volume nginx
+
+볼륨을 연결시켜두면 내 파일에서 무언가를 수정하면 컨테이너에서 바로 반영이 됨
+
+
+
+docker volume 
+docker에서 제공하는 불륨 관리 기능을 활용해 컨테이너가 삭제되더라도 데이터를 보존함
+기본적으로 /var/lib/docker/volumes/$[volume-name]/_data 에 데이터가 저장됨 
+
+도커 볼륨 확인 
+docker volume ls 
+
+web-volume 도커 볼륨 생성 
+docker volume create --name test-db 
+
+도커의 web volume 을 Nginx 의 웹 루트 디렉토리로  마운트
+docker run -d --name my-sql -v test-db:/var/lib/mysql -p 3306:3306 mysql:5.7
+
+my sql 이름의 컨테이너 실행 시 환경변수로 root password 지정함 
+docker run -d --name my-sql -v test-db:/var/lib/mysql -p 3306:3306 --platform linux/amd64 -e MYSQL_PORT_PASSWORD=12345 mysql:5.7
+
+도커 볼륨 삭제 
+docker volume rm [volume name] 
