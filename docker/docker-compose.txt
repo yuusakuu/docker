@@ -1,0 +1,232 @@
+Docker compose
+
+docker compose 를 사용하는 목적
+
+1. 로컬 개발 환경 구성 
+
+2. 자동화된 테스트 환경 구성 
+
+3. 단일 호스트 내 컨테이너 선언적 관리 
+
+즉, docker compose를 활용하면 원하는 환경을 구성할 때 더 빠르게 구성이 가능하다.
+
+
+
+docker 실습 
+
+1. docker compose
+
+2. docker compose from dockerfile 
+
+1-1) jupyter notebook 환경 만들기 
+
+
+jupyter 디렉토리를 생성한다. 
+Dockerfile을 생성한 후 dockerfile 이내에 아래의 내용을 입력한다. 
+
+----
+
+FROM python:3.9
+RUN apt-get update
+RUN apt-get upgrade -y
+
+RUN apt-get clean && apt-get autoremove -y
+RUN apt-get install -y python3-pip
+RUN pip install jupyter
+
+WORKDIR /data/app/app-jupyter
+
+ENTRYPOINT ["jupyter", "notebook"]
+CMD ["--ip", "0.0.0.0", "--port", "8888", "--allow-root", "--NotebookApp.token='12345'"]
+
+-----
+
+
+이후 docker compose를 위해 docker-compose-yml 파일을 생성한다. 
+
+docker-compose-yml 파일 이내에 아래의 내용을 입력한다. 
+
+----
+
+version: '3'
+services:
+  env-jupyter:
+    image: jupyter-docker-test
+    build: .
+    container_name: env-jupyter 
+    ports:
+      - "8888:8888"
+    volumes:
+     - .:/data/app/app-jupyter
+
+----
+
+
+
+1-2) DS 팀과 Engineer 팀이 사용할 jupyter notebook 환경을 만든다. 
+ 
+docker-compose-team 디렉토리를 새로 생성한다. 
+
+위 디렉토리의 하위 디렉토리로 project-ds 와 project-engineer 디렉토리를 생성한다.
+
+또한 해당 디렉토리의 하위 디렉토리로 docker 디렉토리를 만들고 jupyter-ds 디렉토리와 jupyter-engineer 디렉토리를 각각 생성한다.
+
+docker-compose.yml 파일을 생성한다. 
+
+해당 파일 이내에 아래 내용을 입력한다. 
+
+----------
+
+version: "3.9"
+services:
+  jupyter-ds:
+    build:
+      context: .
+      dockerfile: ./docker/jupyter-ds/Dockerfile
+    container_name: ds-jupyter
+
+    ports:
+      - "8891:8891"
+    restart: always
+    volumes:
+      - ./project-ds:/app/project-ds
+    command: jupyter notebook --ip=0.0.0.0 --port=8891 --allow-root --no-browser --NotebookApp.token="12345"
+
+  jupyter-engineer:
+    depends_on:
+      - jupyter-ds
+    build:
+      context: .
+      dockerfile: ./docker/jupyter-engineer/Dockerfile
+
+    container_name: engineer-jupyter
+    ports:
+      - "8899:8899"
+    restart: always
+    volumes:
+      - ./project-engineer:/app/projects-engineer
+    command: jupyter notebook --ip=0.0.0.0 --port=8899 --allow-root --no-browser --NotebookApp.token="12345"
+	
+---------
+
+jupyter-ds 디렉토리와 jupyter-engineer 디렉토리에 각각 Dockerfile 파일을 생성한다. 
+
+각 dockerfile 내부에 아래 내용을 입력한다. 
+
+------
+FROM python:3.8
+
+
+ADD requirements.txt /app/ 
+
+
+RUN pip install --upgrade pip setuptools && \ 
+    pip install -r /app/requirements.txt
+
+WORKDIR /app/project-ds 
+
+------
+
+FROM python:3.8
+
+
+ADD requirements.txt /app/ 
+
+
+RUN pip install --upgrade pip setuptools && \ 
+    pip install -r /app/requirements.txt
+
+WORKDIR /app/project-engineer
+
+------
+
+위 항목을 입력 후 터미널에서 docker-compose up 명령어를 입력하면 jupyter 를 실행할 수 있다. 
+
+
+
+2) MYSQL 환경 만들기 
+
+docker-compose-mysql 디렉토리를 생성한다. 
+
+해당 디렉토리에서 docker-compose.yml 파일을 생성하고 아래 내용을 입력한다. 
+
+
+------
+
+version: "3"
+
+services:
+  mysql:
+    image: mysql:5.7
+    volumes:
+      - db_volume:/var/lib/mysql
+
+    environment:
+      MYSQL_DATABASE: my-service
+      MYSQL_USER: test-user
+      MYSQL_PASSWORD: 12345!
+      MYSQL_ROOT_PASSWORD: 12345!
+
+volumes:
+  db_volume:
+
+------
+
+해당 내용을 입력하고 터미널에 docker-compose up 을 입력한다.
+
+
+db 접속 및 조회 등을 하기 위한 명령어를 입력한다. 
+
+mysql -u root -p 
+enter password 
+
+# database 조회 
+show databases;
+
+# 테이블 조회 
+show tables;
+
+
+yml 파일 내에 존재하는 user 명과 비밀번호 등을 따로 보관하기 위해 .env 파일을 생성할 수 있다. 
+
+.env 파일 내에 password 정보를 담은 내용을 입력하고 저장한다.
+
+-----
+
+MYSQL_DATABASE = ml-service
+MYSQL_USER = test-user 
+MYSQL_PASSWORD=12345!
+MYSQL__ROOT_PASSWORD=12345!
+
+-----
+
+
+3) MongoDB 환경을 만들고 CRUD 하기 
+
+docker-compose-mongodb 디렉토리를 생성한 후 
+docker-compose.yml 파일을 생성한다. 
+
+해당 파일 이내에 아래 내용을 입력한다.
+
+-----
+
+version: '3.8'
+services:
+  mongodb:
+    image: mongo
+    container_name: mongodb
+    restart: always
+    ports:
+      - 27017:27017
+    volumes:
+      - ./mongodb:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=1234
+      - MONGO_INITDB_DATABASE=mydb
+	  
+	  
+----
+
+
+터미널에서 docker-compose up 을 입력한다. 
